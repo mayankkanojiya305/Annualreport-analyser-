@@ -27,7 +27,7 @@ if uploaded_file is not None:
                 text += pdf_reader.pages[page].extract_text()
             
             # 2. Gemini AI ko command dena
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-pro)
             prompt = f"""
             Is financial text ko analyze karo. Mujhe sirf ek valid JSON do jisme company ke main financial metrics ho (jaise Revenue, Marketing Cost, Operations, Net Profit etc.). 
             Sirf JSON format return karna, koi extra text nahi.
