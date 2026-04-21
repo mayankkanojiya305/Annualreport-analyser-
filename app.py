@@ -73,38 +73,42 @@ if uploaded_file is not None:
         col4.metric("Net Profit/Loss", f"{d.get('Net Profit/Loss', 0)}")
         st.divider()
 
-    # --- PART 2: AI Chat Interface ---
+        # --- PART 2: AI Chat Interface ---
     st.write("### 💬 Chat with the Report")
     st.caption("Pucho report ki deep details: 'Blinkit ka AOV kya tha?', 'Total kitne dark stores open huye?', ya 'CM1 margins batao'")
 
-    # Purani chat screen par dikhane ke liye
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Naya sawal type karne ka box
     if user_q := st.chat_input("Ask any deep detail from the report..."):
-        # User ka sawal screen par dikhao
         st.session_state.chat_history.append({"role": "user", "content": user_q})
         with st.chat_message("user"):
             st.markdown(user_q)
         
-        # AI ka jawab nikalo
         with st.chat_message("assistant"):
-            with st.spinner("Report ke 300+ pages me dhoondh raha hu..."):
+            with st.spinner("Report ke saare pages mein dhoondh raha hu..."):
                 try:
-                    chat_model = genai.GenerativeModel(get_best_model())
+                    # Yahan hum explicitly 'flash' model use kar rahe hain taaki 384 pages aaram se process ho sakein
+                    chat_model = genai.GenerativeModel('gemini-1.5-flash')
+                    
                     full_prompt = f"""
-                    You are a financial analyst. Use the provided annual report text to answer the user's question accurately. 
-                    If the exact numbers are not in the text, say you cannot find them. Do not make up numbers.
+                    You are a highly skilled financial analyst. Use the provided annual report text to answer the user's question accurately. 
+                    
+                    STRICT LANGUAGE RULE: You MUST ALWAYS reply in Hinglish (a mix of Hindi and English, written entirely in the English alphabet/Roman script). 
+                    DO NOT use pure Hindi script (Devanagari) under any circumstances. Keep the tone helpful and professional.
+                    
+                    If the exact numbers or information are not in the text, clearly state that you cannot find them in the report. Do not hallucinate or make up numbers.
                     
                     Report Text: {st.session_state.pdf_text}
                     
                     User Question: {user_q}
                     """
+                    
                     ans = chat_model.generate_content(full_prompt)
                     st.markdown(ans.text)
                     st.session_state.chat_history.append({"role": "assistant", "content": ans.text})
                 except Exception as e:
-                    st.error("Jawab dhoondhne mein error aayi. Please try again.")
+                    error_msg = f"Bhai, data process karne mein error aa gaya. Shayad PDF ka text limit se zyada bada hai. Error: {e}"
+                    st.error(error_msg)
                     
