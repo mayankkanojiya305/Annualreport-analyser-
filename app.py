@@ -11,22 +11,24 @@ try:
 except:
     st.error("API Key not found in Secrets! Please add it in Streamlit settings.")
 
-st.set_page_config(page_title="Fin-Analyzer 13R", layout="wide")
-st.title("📊 Financial Report Visualizer")
-st.subheader("Upload any Quarterly/Annual Report (PDF)")
+st.set_page_config(page_title="Fin-Analyzer Pro", layout="wide")
+st.title("📊 Financial Report Visualizer (Pro Mode)")
+st.subheader("Upload any Detailed Annual Report (PDF)")
 
 uploaded_file = st.file_uploader("Choose a PDF report", type=['pdf'])
 
 if uploaded_file is not None:
-    with st.spinner("AI Report padh raha hai... Isme 10-15 seconds lag sakte hain ⏳"):
+    # 384 pages padhne mein time lagega, isliye spinner text change kiya hai
+    with st.spinner("AI puri report (saare pages) deep scan kar raha hai... Badi PDF mein 1-2 minute lag sakte hain ⏳"):
         try:
-            # 1. PDF se Text nikalna
+            # 1. PDF se Text nikalna (Ab hum SAARE pages padhenge, 10 nahi)
             pdf_reader = PyPDF2.PdfReader(uploaded_file)
             text = ""
-            for page in range(min(10, len(pdf_reader.pages))): 
-                text += pdf_reader.pages[page].extract_text()
+            total_pages = len(pdf_reader.pages)
+            for page in range(total_pages): 
+                text += pdf_reader.pages[page].extract_text() + "\n"
             
-            # 2. Auto-Detect Available Model (Smart Jugaad)
+            # 2. Auto-Detect Available Model
             best_model = None
             for m in genai.list_models():
                 if 'generateContent' in m.supported_generation_methods:
@@ -38,32 +40,42 @@ if uploaded_file is not None:
             else:
                 model = genai.GenerativeModel(best_model)
                 
-                # 3. Prompt for AI
+                # 3. STRICT PROMPT (Taaki kachra data na aaye)
                 prompt = f"""
-                Is financial text ko analyze karo. Mujhe sirf ek valid JSON do jisme company ke main financial metrics ho (jaise Revenue, Marketing Cost, Operations, Net Profit etc.). 
-                Sirf JSON format return karna, koi extra text nahi.
+                You are an expert financial analyst. Read this text from an annual report.
+                Extract the key financial metrics for the latest financial year. 
+                I need exact numbers (in Crores or Millions as mentioned in the report).
+                Give me ONLY a valid JSON format with these specific keys:
+                "Total Revenue", "Cost of Goods Sold (COGS)", "Employee Cost", "Marketing & Advertising", "Other Operational Expenses", "EBITDA", "Net Profit/Loss".
+                If a specific metric is not explicitly found, estimate it from available data or put 0.
+                Return ONLY valid JSON. No markdown, no extra text.
                 Text: {text}
                 """
                 
                 response = model.generate_content(prompt)
                 
-                # 4. JSON saaf karna aur extract karna
+                # 4. JSON saaf karna
                 json_str = response.text.strip().replace("```json", "").replace("```", "")
                 metrics = json.loads(json_str)
                 
-                # Table aur Graph banana
-                df = pd.DataFrame(list(metrics.items()), columns=['Metric', 'Amount (approx)'])
+                # Table banana
+                df = pd.DataFrame(list(metrics.items()), columns=['Metric', 'Amount'])
                 
-                st.success(f"Analysis Complete! ✅ (Model used: {best_model})")
+                st.success(f"Deep Analysis Complete! ✅ ({total_pages} pages scanned)")
                 
-                col1, col2 = st.columns(2)
+                col1, col2 = st.columns([1, 2]) # Graph ko zyada jagah di hai
+                
                 with col1:
-                    st.write("### 📝 Extracted Metrics")
+                    st.write("### 📝 Detailed Metrics")
                     st.dataframe(df)
                     
                 with col2:
-                    st.write("### 🍩 Financial Breakdown")
-                    fig = px.pie(df, values='Amount (approx)', names='Metric')
+                    st.write("### 📊 Financial Breakdown (Bar Chart)")
+                    # Pie chart hata kar Bar chart lagaya hai taaki clear dikhe
+                    fig = px.bar(df, x='Metric', y='Amount', text='Amount', 
+                                 title="Revenue vs Expenses vs Profit",
+                                 color='Metric')
+                    fig.update_traces(textposition='outside')
                     st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
